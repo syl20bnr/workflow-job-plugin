@@ -39,18 +39,10 @@ import hudson.XmlFile;
 import hudson.console.AnnotatedLargeText;
 import hudson.console.ConsoleNote;
 import hudson.console.ModelHyperlinkNote;
-import hudson.model.BuildListener;
-import hudson.model.Executor;
-import hudson.model.Item;
-import hudson.model.Queue;
-import hudson.model.Result;
-import hudson.model.Run;
-import hudson.model.StreamBuildListener;
-import hudson.model.TaskListener;
-import hudson.model.User;
 import hudson.model.listeners.RunListener;
 import hudson.model.listeners.SCMListener;
 import hudson.model.listeners.SaveableListener;
+import hudson.model.*;
 import hudson.scm.ChangeLogSet;
 import hudson.scm.SCM;
 import hudson.scm.SCMRevisionState;
@@ -162,6 +154,8 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
     };
     private transient volatile BuildListener listener;
 
+    private WorkflowJob jobInRun;
+
     private transient boolean allowTerm;
 
     private transient boolean allowKill;
@@ -243,6 +237,7 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     public WorkflowRun(WorkflowJob job) throws IOException {
         super(job);
+        jobInRun = job;
         firstTime = true;
         checkouts = new PersistedList<>(this);
         //System.err.printf("created %s @%h%n", this, this);
@@ -250,7 +245,43 @@ public final class WorkflowRun extends Run<WorkflowJob,WorkflowRun> implements F
 
     public WorkflowRun(WorkflowJob job, File dir) throws IOException {
         super(job, dir);
+        jobInRun = job;
         //System.err.printf("loaded %s @%h%n", this, this);
+    }
+
+    @Exported
+    public void getRunAction(){
+        List<? extends Action> r = jobInRun.getAllActions();
+        for(Action act:r){
+            if(act.getClass().toString().equals("class com.cloudbees.workflow.ui.view.WorkflowStageViewAction") && checkIfActionExist(act)) {
+                addAction(act);
+                break;
+            }
+        }
+    }
+
+    public boolean checkIfActionExist(Action a){
+        List<? extends Action> r = this.getAllActions();
+        boolean found = false;
+        for (Action a2 : r){
+            if(a2.getClass()==a.getClass()){
+                found = true;
+            }
+        }
+        return !found;
+    }
+
+    @Exported
+    public boolean checkAction(Action a){
+        boolean test = false;
+        if (a.getClass().toString() == null) {
+            throw new IllegalStateException("name of action is null");
+        }
+        else if(a.getClass().toString().equals("class com.cloudbees.workflow.ui.view.WorkflowStageViewAction")){
+            test = true;
+        }
+
+        return !test;
     }
 
     @Override public LazyBuildMixIn.RunMixIn<WorkflowJob,WorkflowRun> getRunMixIn() {
